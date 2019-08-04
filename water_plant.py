@@ -17,16 +17,23 @@ import masterflex
 PLANT_WEIGHT_FILENAME = '/home/pi/water-weight-control/peso-plantas.csv'
 CONFIG_FILENAME = '/home/pi/water-weight-control/config.txt'
 
+WATER_PER_1_REVOLUTION = 0.849392857142857
+
 
 def main ():
     cfg = read_config ()
     pump = detect_pump ()
-    scale = detect_scale ()
-    download_plant_weight_file (cfg ['token'])
-    dicts_id_weight = read_plant_weight_file ()
-    while True:
-        plant_id = get_plant_code_reading ()
-        plant_weight = get_scale_reading (scale)
+    try:
+        scale = detect_scale ()
+        download_plant_weight_file (cfg ['token'])
+        dicts_id_weight = read_plant_weight_file ()
+        while True:
+            plant_id = get_plant_code_reading ()
+            plant_weight = get_scale_reading (scale)
+            water_plant (plant_id, plant_weight, dicts_id_weight [plant_id], pump)
+    finally:
+        pump.halt ()
+        pump.cancel ()
 
 
 def read_config ():
@@ -112,7 +119,7 @@ def get_plant_code_reading ():
     Get a plant code using the bar code.
     :return: a long number.
     """
-    device = '/dev/hidraw2'
+    device = '/dev/hidraw0'
     while not os.path.exists (device):
         write_to_log ('waiting for bar code reader to be connected...')
         time.sleep (30)
@@ -160,11 +167,33 @@ def get_scale_reading (scale):
     """
     Get a scale reading.
     """
-    reading = scale.readline ()
+    ko = True
+    while ko:
+        reading = scale.readline ()
+        if len (reading) == 0:
+            write_to_log ('waiting for scale to return a reading')
+            time.sleep (10)
+        else:
+            ko = False
     write_to_log ('scale returned the reading [{}]'.format (reading))
     weight = reading [1:9]
     result = float (weight)
     return result
+
+
+def water_plant (plant_id, plant_current_weight, plant_desired_weight, pump):
+    delta_weight = plant_desired_weight - plant_current_weight
+    if delta_weight > 0:
+        write_to_log ('plant id {} needs {}g of water'.format (plant_id, delta_weight))
+        MOTOR_SPEED = 100
+        revolutions = '{:.2}'.format (delta_weight / WATER_PER_1_REVOLUTION)
+        pump.setMotorSpeed (MOTOR_SPEED)
+        pump.setRevolutions (revolutions)
+        pump.go ()
+        write_to_log ('set the pump speed to {} and pump revolutions to {}'.format (MOTOR_SPEED, revolutions))
+    else:
+        write_to_log ('plant id {} has excess water, {}g'.format (plant_id, -delta_weight))
+    return None
 
 
 def write_to_log (message):
