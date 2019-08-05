@@ -9,6 +9,7 @@ import os
 import os.path
 import sys
 import serial
+import subprocess
 import time
 import yaml
 
@@ -44,6 +45,25 @@ def read_config ():
         result = yaml.safe_load (fd)
     write_to_log ('read configuration file')
     return result
+
+
+def detect_barcode_scanner ():
+    """Wait for the barcode scanner to be connected to the raspberrypi.
+
+    Per the `dmesg` command, the barcode scanner is assigned the device filename
+
+        /dev/input/by-id/usb-SHANG_CHEN_DIAN_ZI_SHANG_CHEN_HID_SC-32-event-kbd
+
+    We don't check for this file, instead we check for '/dev/hidraw0' which
+    is the only input device that will be connected to the raspberrypi.
+    """
+    device = '/dev/hidraw0'
+    while not os.path.exists (device):
+        write_to_log ('waiting for bar code reader to be connected...')
+        play_sound ('connect-barcode-scanner.riff')
+        wait_for_file (device, 10)
+    write_to_log ('detected bar code reader at device [{}]'.format (device))
+    return device
 
 
 def detect_pump ():
@@ -114,17 +134,14 @@ hid = { 4: 'a', 5: 'b', 6: 'c', 7: 'd', 8: 'e', 9: 'f', 10: 'g', 11: 'h', 12: 'i
 hid2 = { 4: 'A', 5: 'B', 6: 'C', 7: 'D', 8: 'E', 9: 'F', 10: 'G', 11: 'H', 12: 'I', 13: 'J', 14: 'K', 15: 'L', 16: 'M', 17: 'N', 18: 'O', 19: 'P', 20: 'Q', 21: 'R', 22: 'S', 23: 'T', 24: 'U', 25: 'V', 26: 'W', 27: 'X', 28: 'Y', 29: 'Z', 30: '!', 31: '@', 32: '#', 33: '$', 34: '%', 35: '^', 36: '&', 37: '*', 38: '(', 39: ')', 44: ' ', 45: '_', 46: '+', 47: '{', 48: '}', 49: '|', 51: ':' , 52: '"', 53: '~', 54: '<', 55: '>', 56: '?'  }
 
 
-def get_plant_code_reading ():
+def get_plant_code_reading (barcode_scanner_device):
     """
-    Get a plant code using the bar code.
+    Get a plant code using the barcode scanner.
+
+    The code of this function was taken from `https://github.com/rgrokett/TalkingBarcodeReader`.
     :return: a long number.
     """
-    device = '/dev/hidraw0'
-    while not os.path.exists (device):
-        write_to_log ('waiting for bar code reader to be connected...')
-        time.sleep (30)
-    write_to_log ('detected bar code reader at device [{}]'.format (device))
-    fd = open (device, 'rb')
+    fd = open (barcode_scanner_device, 'rb')
     ss = ''
     shift = False
     done = False
@@ -160,6 +177,7 @@ def get_plant_code_reading ():
     fd.close ()
     result = int (ss)
     write_to_log ('read plant code {}'.format (result))
+    synthesise_text ('read plant code {}'.format (' '.join (str (result))))
     return result
 
 
@@ -194,6 +212,70 @@ def water_plant (plant_id, plant_current_weight, plant_desired_weight, pump):
     else:
         write_to_log ('plant id {} has excess water, {}g'.format (plant_id, -delta_weight))
     return None
+
+
+def play_sound (sound):
+    """
+    Play the sound in the given filename.
+
+    Sound files are located in the folder `/home/pi/water-weight-control`.
+
+    The function returns after the sound has been played.
+
+    :param sound: the sound filename.
+    """
+    command = [
+        '/usr/bin/omxplayer',
+        '--no-osd',
+        '--no-keys',
+        os.path.join ('/home/pi/water-weight-control', sound)
+    ]
+    process = subprocess.Popen (
+        command
+    )
+    process.wait ()
+    return None
+
+
+def synthesise_text (text):
+    """
+    Use the speech synthesizer to play the given text.
+
+    The function returns after the text has been spoken.
+
+    :param text: the text to be spoken.
+    """
+    command = [
+        '/usr/bin/flite',
+        '-voice', 'slt',
+        '-t', text
+    ]
+    process = subprocess.Popen (
+        command
+    )
+    process.wait ()
+    return None
+
+
+def wait_for_file (filename, timeout, check_time = 1):
+    """Waits for the given filename to appear in the file system.
+
+    This function is used by the application to wait for devices to be
+    connected to the raspberry pi.  The function waits at most `timeout`
+    seconds and checks the existance of the file every `check_time`
+    seconds.
+
+    :param filename: the device filename to wait for.
+    :param timeout: how many seconds to wait for.
+    :param check_time: the filename existence period (in seconds).
+
+    :return: `True` if the device filename exists.
+    """
+    ellapsed = 0
+    while not os.path.exists (filename) and ellapsed < timeout:
+        time.sleep (check_time)
+        ellapsed += check_time
+    return os.path.exists (filename)
 
 
 def write_to_log (message):
