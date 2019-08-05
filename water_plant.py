@@ -23,14 +23,16 @@ WATER_PER_1_REVOLUTION = 0.849392857142857
 
 
 def main ():
+    play_sound ('welcome-message.riff')
     cfg = read_config ()
+    barcode = detect_barcode_scanner ()
     pump = detect_pump ()
     try:
         scale = detect_scale ()
         download_plant_weight_file (cfg ['token'])
         dicts_id_weight = read_plant_weight_file ()
         while True:
-            plant_id = get_plant_code_reading ()
+            plant_id = get_plant_code_reading (barcode)
             plant_weight = get_scale_reading (scale)
             water_plant (plant_id, plant_weight, dicts_id_weight [plant_id], pump)
     finally:
@@ -75,7 +77,8 @@ def detect_pump ():
     device = '/dev/ttyUSB0'
     while not os.path.exists (device):
         write_to_log ('waiting for pump to be connected...')
-        time.sleep (30)
+        play_sound ('connect-water-pump.riff')
+        time.sleep (10)
     result = masterflex.MasterflexSerial (1, device)
     write_to_log ('detected pump at device [{}]'.format (device))
     return result
@@ -89,7 +92,8 @@ def detect_scale ():
     device = '/dev/ttyUSB1'
     while not os.path.exists (device):
         write_to_log ('waiting for scale to be connected...')
-        time.sleep (30)
+        play_sound ('connect-plant-scale.riff')
+        time.sleep (10)
     result = serial.Serial (device, 9600, timeout=0)
     write_to_log ('detected scale at device [{}]'.format (device))
     return result
@@ -288,3 +292,6 @@ def write_to_log (message):
             ))
     return None
 
+
+if __name__ == '__main__':
+    main ()
