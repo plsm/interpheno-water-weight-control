@@ -15,8 +15,9 @@ import yaml
 
 import masterflex
 
-PLANT_WEIGHT_FILENAME = '/home/pi/water-weight-control/peso-plantas.csv'
-CONFIG_FILENAME = '/home/pi/water-weight-control/config.txt'
+DATA_FOLDER = '/home/pi/water-weight-control'
+PLANT_WEIGHT_FILENAME = DATA_FOLDER + '/peso-plantas.csv'
+CONFIG_FILENAME = DATA_FOLDER + '/config.txt'
 
 WATER_PER_1_REVOLUTION = 0.849392857142857
 
