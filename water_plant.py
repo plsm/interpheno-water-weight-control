@@ -18,13 +18,21 @@ import masterflex
 DATA_FOLDER = '/home/pi/water-weight-control'
 PLANT_WEIGHT_FILENAME = DATA_FOLDER + '/peso-plantas.csv'
 CONFIG_FILENAME = DATA_FOLDER + '/config.txt'
+WATERINGS_FILENAME = DATA_FOLDER + '/watering.csv'
+
+MOTOR_SPEED = 70
 
 WATER_PER_1_REVOLUTION = 0.849392857142857
+WATER_PER_1_REVOLUTION = 0.859535714285714
+WATER_PER_1_REVOLUTION = 0.87
+WATER_PER_1_REVOLUTION = 0.86
+WATER_PER_1_REVOLUTION = 0.85
 
 
 def main ():
     play_sound ('welcome-message.riff')
     cfg = read_config ()
+    upload_waterings (cfg ['token'])
     barcode = detect_barcode_scanner ()
     pump = detect_pump ()
     try:
@@ -146,6 +154,7 @@ def get_plant_code_reading (barcode_scanner_device):
     The code of this function was taken from `https://github.com/rgrokett/TalkingBarcodeReader`.
     :return: a long number.
     """
+    play_sound ('waiting-barcode.riff')
     fd = open (barcode_scanner_device, 'rb')
     ss = ''
     shift = False
@@ -190,17 +199,22 @@ def get_scale_reading (scale):
     """
     Get a scale reading.
     """
+    write_to_log ('waiting for scale to return a reading')
+    play_sound ('waiting-weight.riff')
     ko = True
     while ko:
         reading = scale.readline ()
         if len (reading) == 0:
-            write_to_log ('waiting for scale to return a reading')
+            play_sound ('waiting-weight.riff')
             time.sleep (10)
         else:
             ko = False
     write_to_log ('scale returned the reading [{}]'.format (reading))
     weight = reading [1:9]
-    result = float (weight)
+    try:
+        result = float (weight)
+    except ValueError:
+        result = get_scale_reading (scale)
     return result
 
 
@@ -208,15 +222,50 @@ def water_plant (plant_id, plant_current_weight, plant_desired_weight, pump):
     delta_weight = plant_desired_weight - plant_current_weight
     if delta_weight > 0:
         write_to_log ('plant id {} needs {}g of water'.format (plant_id, delta_weight))
-        MOTOR_SPEED = 100
-        revolutions = '{:.2}'.format (delta_weight / WATER_PER_1_REVOLUTION)
+        revolutions = '{:.2f}'.format (delta_weight / WATER_PER_1_REVOLUTION)
         pump.setMotorSpeed (MOTOR_SPEED)
         pump.setRevolutions (revolutions)
         pump.go ()
         write_to_log ('set the pump speed to {} and pump revolutions to {}'.format (MOTOR_SPEED, revolutions))
+        record_watering (plant_id, plant_current_weight, plant_desired_weight, MOTOR_SPEED, revolutions)
     else:
         write_to_log ('plant id {} has excess water, {}g'.format (plant_id, -delta_weight))
     return None
+
+
+def record_watering (plant_id, plant_current_weight, plant_desired_weight, motor_speed, revolutions):
+    """
+    Record a watering event.
+    """
+    now = datetime.datetime.now ()
+    with open (WATERINGS_FILENAME, 'at') as fd:
+        fd.write ('"{}",{},{},{},{},{},{}\n'.format (
+            now.isoformat (),
+            plant_id,
+            plant_current_weight,
+            plant_desired_weight,
+            motor_speed,
+            revolutions,
+            WATER_PER_1_REVOLUTION
+            )
+        )
+
+
+def upload_waterings (token):
+    try:
+        dbx = dropbox.Dropbox (token)
+        write_to_log ('connected to dropbox account')
+        dbx.files_upload (
+            WATERINGS_FILENAME,
+            '/waterings.csv',
+            mode=dropbox.files.WriteMode.overwrite,
+        )
+        write_to_log ('uploaded waterings file')
+        result = True
+    except BaseException as ex:
+        write_to_log ('an error occur while uploading waterings file {}'.format (ex))
+        result = False
+    return result
 
 
 def play_sound (sound):
