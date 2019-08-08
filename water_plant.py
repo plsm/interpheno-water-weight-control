@@ -19,6 +19,7 @@ DATA_FOLDER = '/home/pi/water-weight-control'
 PLANT_DATA_FILENAME = DATA_FOLDER + '/plant-data.csv'
 CONFIG_FILENAME = DATA_FOLDER + '/config.txt'
 WATERING_FILENAME = DATA_FOLDER + '/watering.csv'
+EXPERIMENT_FILENAME = DATA_FOLDER + '/experiment.txt'
 
 MOTOR_SPEED = 70
 
@@ -39,6 +40,7 @@ class Plant:
 def main ():
     play_sound ('welcome-message.riff')
     cfg = read_config ()
+    download_experiment (cfg ['token'])
     upload_watering (cfg ['token'])
     barcode = detect_barcode_scanner ()
     pump = detect_pump ()
@@ -63,6 +65,28 @@ def read_config ():
     with open (CONFIG_FILENAME, 'r') as fd:
         result = yaml.safe_load (fd)
     write_to_log ('read configuration file')
+    return result
+
+
+def download_experiment (token):
+    global MOTOR_SPEED
+    global WATER_PER_1_REVOLUTION
+    try:
+        dbx = dropbox.Dropbox (token)
+        write_to_log ('connected to dropbox account')
+        dbx.files_download_to_file (EXPERIMENT_FILENAME, '/experiment.txt')
+        write_to_log ('downloaded experiment file')
+        with open (EXPERIMENT_FILENAME, 'r') as fd:
+            exp = yaml.safe_load (fd)
+        if exp ['motor_speed'] != MOTOR_SPEED or\
+                exp ['water_per_1_revolution'] != WATER_PER_1_REVOLUTION:
+            write_to_log ('new experiment parameters ')
+            MOTOR_SPEED = exp ['motor_speed']
+            WATER_PER_1_REVOLUTION = exp = exp ['water_per_1_revolution']
+        result = True
+    except BaseException as ex:
+        write_to_log ('an error occur while downloading experiment file {}'.format (ex))
+        result = False
     return result
 
 
