@@ -16,7 +16,7 @@ import yaml
 import masterflex
 
 DATA_FOLDER = '/home/pi/water-weight-control'
-PLANT_WEIGHT_FILENAME = DATA_FOLDER + '/peso-plantas.csv'
+PLANT_DATA_FILENAME = DATA_FOLDER + '/plant-data.csv'
 CONFIG_FILENAME = DATA_FOLDER + '/config.txt'
 WATERING_FILENAME = DATA_FOLDER + '/watering.csv'
 
@@ -29,6 +29,13 @@ WATER_PER_1_REVOLUTION = 0.86
 WATER_PER_1_REVOLUTION = 0.85
 
 
+class Plant:
+    def __init__ (self, csv_row):
+        self.id = csv_row ['id']
+        self.weight = csv_row ['weight']
+        self.description = csv_row ['description']
+
+
 def main ():
     play_sound ('welcome-message.riff')
     cfg = read_config ()
@@ -37,12 +44,13 @@ def main ():
     pump = detect_pump ()
     try:
         scale = detect_scale ()
-        download_plant_weight_file (cfg ['token'])
-        dicts_id_weight = read_plant_weight_file ()
+        download_plant_data_file (cfg ['token'])
+        dict_plants = read_plant_data_file ()
         while True:
             plant_id = get_plant_code_reading (barcode)
-            plant_weight = get_scale_reading (scale)
-            water_plant (plant_id, plant_weight, dicts_id_weight [plant_id], pump)
+            if report_plant_code (plant_id, dict_plants):
+                plant_weight = get_scale_reading (scale)
+                water_plant (plant_id, plant_weight, dict_plants [plant_id].weight, pump)
     finally:
         pump.halt ()
         pump.cancel ()
@@ -82,6 +90,7 @@ def detect_pump ():
     Search for the serial connection where the pump is connected to.
     :return: an instance of Masterflex
     """
+    # noinspection SpellCheckingInspection
     device = '/dev/ttyUSB0'
     while not os.path.exists (device):
         write_to_log ('waiting for pump to be connected...')
@@ -107,38 +116,38 @@ def detect_scale ():
     return result
 
 
-def download_plant_weight_file (token):
+def download_plant_data_file (token):
     """
-    Download the plant weight file from the dropbox folder associated with the given token.
-    The file is saved in the location given by variable `PLANT_WEIGHT_FILENAME`.
+    Download the plant data file from the dropbox folder associated with the given token.
+    The file is saved in the location given by variable `PLANT_DATA_FILENAME`.
     :param: token: the dropbox token.
     """
     try:
         dbx = dropbox.Dropbox (token)
         write_to_log ('connected to dropbox account')
-        dbx.files_download_to_file (PLANT_WEIGHT_FILENAME, '/peso-plantas.csv')
-        write_to_log ('downloaded plant weight file')
+        dbx.files_download_to_file (PLANT_DATA_FILENAME, '/plant-data.csv')
+        write_to_log ('downloaded plant data file')
         result = True
     except BaseException as ex:
-        write_to_log ('an error occur while downloading plant weight file {}'.format (ex))
+        write_to_log ('an error occur while downloading plant data file {}'.format (ex))
         result = False
     return result
 
 
-def read_plant_weight_file ():
+def read_plant_data_file ():
     """
-    Read the plant weight file and return a dictionary with id's associated with weights.
+    Read the plant data file and return a dictionary with id's associated with plant data.
     """
-    with open (PLANT_WEIGHT_FILENAME, 'r') as fd:
+    with open (PLANT_DATA_FILENAME, 'r') as fd:
         reader = csv.DictReader (
             fd,
             quoting=csv.QUOTE_NONNUMERIC,
             delimiter=',',
         )
         result = {
-            int (row ['id']): row ['weight']
+            row ['id']: Plant (row)
             for row in reader
-            }
+        }
     return result
 
 
@@ -199,10 +208,34 @@ def get_plant_code_reading (barcode_scanner_device):
                     else:
                         ss += hid[int (ord (c))]
     fd.close ()
-    result = int (ss)
+    result = ss
     write_to_log ('read plant code {}'.format (result))
-    synthesise_text ('read plant code {}'.format (' '.join (str (result))))
     return result
+
+
+def report_plant_code (code, plants):
+    """
+    Say to the user the plant code and description.
+
+    If the code does not exist, we report this incident.
+    :param code: the plant code read by the barcode scanner.
+    :param plants: the plant dictionary.
+    :return: `True` if the code exists in the dictionary.
+    """
+    ok = code in plants
+    if ok:
+        synthesise_text ('Read plant code {}. The description is {}.'.format (
+            ' '.join (str (code)),
+            plants [code].description,
+        ))
+    else:
+        write_to_log ('non existing plant code {}'.format (
+            code
+        ))
+        synthesise_text ('Warning! Unknown plant code {}.'.format (
+            ' '.join (str (code)),
+        ))
+    return ok
 
 
 def get_scale_reading (scale):

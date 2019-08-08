@@ -32,7 +32,7 @@ def main ():
     create_sound_file ('Waiting for plant weight...', 'waiting-weight.riff')
     try:
         dbx = dropbox.Dropbox (args.token)
-        dbx.files_download_to_file (water_plant.PLANT_WEIGHT_FILENAME, '/peso-plantas.csv')
+        dbx.files_download_to_file (water_plant.PLANT_DATA_FILENAME, '/plant-data.csv')
     except BaseException as ex:
         print (ex)
 
