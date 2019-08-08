@@ -360,6 +360,7 @@ def upload_watering (token):
         result = True
     except BaseException as ex:
         write_to_log ('an error occur while uploading watering file {}'.format (ex))
+        play_sound ('no-uploading-watering.riff')
         result = False
     return result
 
