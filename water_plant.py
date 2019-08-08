@@ -83,6 +83,10 @@ def download_experiment (token):
             write_to_log ('new experiment parameters ')
             MOTOR_SPEED = exp ['motor_speed']
             WATER_PER_1_REVOLUTION = exp = exp ['water_per_1_revolution']
+            synthesise_text ('Set the water pump parameters. The motor speed is {}. The water weight per one revolution is {} grams'.format (
+                MOTOR_SPEED,
+                WATER_PER_1_REVOLUTION
+            ))
         result = True
     except BaseException as ex:
         write_to_log ('an error occur while downloading experiment file {}'.format (ex))
@@ -151,6 +155,7 @@ def download_plant_data_file (token):
         write_to_log ('connected to dropbox account')
         dbx.files_download_to_file (PLANT_DATA_FILENAME, '/plant-data.csv')
         write_to_log ('downloaded plant data file')
+        play_sound ('download-plant-data.riff')
         result = True
     except BaseException as ex:
         write_to_log ('an error occur while downloading plant data file {}'.format (ex))

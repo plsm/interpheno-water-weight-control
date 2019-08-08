@@ -25,7 +25,8 @@ def main ():
     with open (water_plant.CONFIG_FILENAME, 'wt') as fd:
         yaml.safe_dump (cfg, fd)
     create_sound_file ('Welcome to the plant weight water control system.', 'welcome-message.riff')
-    create_sound_file ('Uploaded file with plant data.', 'upload-watering.riff')
+    create_sound_file ('Uploaded file with plant weight and watering.', 'upload-watering.riff')
+    create_sound_file ('Downloaded file with plant data', 'download-plant-data.riff')
     create_sound_file ('Connect barcode scanner.', 'connect-barcode-scanner.riff')
     create_sound_file ('Connect water pump.', 'connect-water-pump.riff')
     create_sound_file ('Connect plant scale.', 'connect-plant-scale.riff')
