@@ -298,12 +298,19 @@ def upload_watering (token):
     try:
         dbx = dropbox.Dropbox (token)
         write_to_log ('connected to dropbox account')
+        # read the content
+        with open (WATERING_FILENAME, 'r') as fd:
+            content = ''
+            for line in fd:
+                content += line
+            content = bytes (content, 'utf8')
         dbx.files_upload (
-            WATERING_FILENAME,
+            content,
             '/watering.csv',
             mode=dropbox.files.WriteMode.overwrite,
         )
         write_to_log ('uploaded watering file')
+        play_sound ('upload-watering.riff')
         result = True
     except BaseException as ex:
         write_to_log ('an error occur while uploading watering file {}'.format (ex))
