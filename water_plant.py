@@ -297,6 +297,7 @@ def water_plant (plant_id, plant_current_weight, plant_desired_weight, pump):
         record_watering (plant_id, plant_current_weight, plant_desired_weight, MOTOR_SPEED, revolutions)
     else:
         write_to_log ('plant id {} has excess water, {}g'.format (plant_id, -delta_weight))
+        record_weight (plant_id, plant_current_weight, plant_desired_weight)
     return None
 
 
@@ -306,7 +307,7 @@ def record_watering (plant_id, plant_current_weight, plant_desired_weight, motor
     """
     now = datetime.datetime.now ()
     with open (WATERING_FILENAME, 'at') as fd:
-        fd.write ('"{}",{},{},{},{},{},{}\n'.format (
+        fd.write ('"{}",{},{},{},1,{},{},{}\n'.format (
             now.isoformat (),
             plant_id,
             plant_current_weight,
@@ -314,6 +315,22 @@ def record_watering (plant_id, plant_current_weight, plant_desired_weight, motor
             motor_speed,
             revolutions,
             WATER_PER_1_REVOLUTION
+            )
+        )
+
+
+def record_weight (plant_id, plant_current_weight, plant_desired_weight):
+    """Record a plant weight.
+
+    Used when there is no watering.
+    """
+    now = datetime.datetime.now ()
+    with open (WATERING_FILENAME, 'at') as fd:
+        fd.write ('"{}",{},{},{},0,,,\n'.format (
+            now.isoformat (),
+            plant_id,
+            plant_current_weight,
+            plant_desired_weight
             )
         )
 
@@ -327,7 +344,7 @@ def upload_watering (token):
             content = ''
             for line in fd:
                 content += line
-            content = bytes (content, 'utf8')
+            content = bytes (content)
         dbx.files_upload (
             content,
             '/watering.csv',
