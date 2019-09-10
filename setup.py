@@ -38,9 +38,17 @@ def main ():
     create_sound_file ('Waiting for plant weight...', 'waiting-weight.riff')
     try:
         dbx = dropbox.Dropbox (args.token)
-        dbx.files_download_to_file (water_plant.PLANT_DATA_FILENAME, '/plant-data.csv')
+        dbx.files_download_to_file (water_plant.EXPERIMENT_DATA_FILENAME, '/experiment-data.csv')
     except BaseException as ex:
         print (ex)
+    if os.path.exists (water_plant.WATERING_FILENAME):
+        answer = input ('Overwrite file {} (y/n)? '.format (water_plant.WATERING_FILENAME))
+        ok = answer == 'y' or answer == 'yes'
+    else:
+        ok = True
+    if ok:
+        with open (water_plant.WATERING_FILENAME, 'wt') as fd:
+            fd.write ('"timestamp","plant id","plant current weight","plant desired weight","watered","motor speed","revolutions","water per 1 revolution"\n')
 
 
 def create_sound_file (text, filename):
