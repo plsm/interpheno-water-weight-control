@@ -16,7 +16,7 @@ import yaml
 import masterflex
 
 DATA_FOLDER = '/home/pi/water-weight-control'
-PLANT_DATA_FILENAME = DATA_FOLDER + '/experiment-data.csv'
+EXPERIMENT_DATA_FILENAME = DATA_FOLDER + '/experiment-data.csv'
 CONFIG_FILENAME = DATA_FOLDER + '/config.txt'
 WATERING_FILENAME = DATA_FOLDER + '/watering.csv'
 PUMP_DATA_FILENAME = DATA_FOLDER + '/pump-data.txt'
@@ -42,9 +42,9 @@ def main ():
     play_sound ('welcome-message.riff')
     cfg = read_config ()
     download_pump_data_file (cfg ['token'])
-    download_plant_data_file (cfg ['token'])
+    download_experiment_data_file (cfg ['token'])
     upload_watering (cfg ['token'])
-    dict_plants = read_plant_data_file ()
+    dict_plants = read_experiment_data_file ()
     barcode = detect_barcode_scanner ()
     pump = detect_pump ()
     try:
@@ -149,31 +149,33 @@ def detect_scale ():
     return result
 
 
-def download_plant_data_file (token):
+def download_experiment_data_file (token):
     """
     Download the plant data file from the dropbox folder associated with the given token.
-    The file is saved in the location given by variable `PLANT_DATA_FILENAME`.
+    The file is saved in the location given by variable `EXPERIMENT_DATA_FILENAME`.
     :param: token: the dropbox token.
     """
     try:
         dbx = dropbox.Dropbox (token)
         write_to_log ('connected to dropbox account')
-        dbx.files_download_to_file (PLANT_DATA_FILENAME, '/experiment-data.csv')
-        write_to_log ('downloaded plant data file')
-        play_sound ('download-plant-data.riff')
+        dbx.files_download_to_file (EXPERIMENT_DATA_FILENAME, '/experiment-data.csv')
+        write_to_log ('downloaded experiment data file')
+        play_sound ('download-experiment-data.riff')
         result = True
     except BaseException as ex:
-        write_to_log ('an error occur while downloading plant data file {}'.format (ex))
+        write_to_log ('an error occur while downloading experiment data file {}'.format (ex))
+        play_sound ('no-download-experiment-data.riff')
         result = False
     return result
 
 
-def read_plant_data_file ():
+def read_experiment_data_file ():
     """
-    Read the plant data file and return a dictionary with id's associated with plant data.
+    Read the experiment data file containing information about wich plants should be watered
+    and return a dictionary with id's associated with plant data.
     """
     try:
-        with open (PLANT_DATA_FILENAME, 'r') as fd:
+        with open (EXPERIMENT_DATA_FILENAME, 'r') as fd:
             reader = csv.DictReader (
                 fd,
                 quoting=csv.QUOTE_NONNUMERIC,
@@ -185,7 +187,7 @@ def read_plant_data_file ():
             }
     except BaseException:
         try:
-            with open (PLANT_DATA_FILENAME, 'r') as fd:
+            with open (EXPERIMENT_DATA_FILENAME, 'r') as fd:
                 reader = csv.DictReader (
                     fd,
                     quoting=csv.QUOTE_NONNUMERIC,
@@ -196,15 +198,18 @@ def read_plant_data_file ():
                     for row in reader
                 }
         except BaseException:
-            with open (PLANT_DATA_FILENAME, 'r') as fd:
-                reader = csv.DictReader (
-                    fd,
-                    delimiter=';',
-                )
-                result = {
-                    row ['id']: Plant (row)
-                    for row in reader
-                }
+            try:
+                with open (EXPERIMENT_DATA_FILENAME, 'r') as fd:
+                    reader = csv.DictReader (
+                        fd,
+                        delimiter=';',
+                    )
+                    result = {
+                        row ['id']: Plant (row)
+                        for row in reader
+                    }
+            except BaseException:
+                play_sound ('error-parsing-experiment-data.riff')
     print (result)
     return result
 
