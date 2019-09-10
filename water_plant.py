@@ -16,10 +16,10 @@ import yaml
 import masterflex
 
 DATA_FOLDER = '/home/pi/water-weight-control'
-PLANT_DATA_FILENAME = DATA_FOLDER + '/plant-data.csv'
+PLANT_DATA_FILENAME = DATA_FOLDER + '/experiment-data.csv'
 CONFIG_FILENAME = DATA_FOLDER + '/config.txt'
 WATERING_FILENAME = DATA_FOLDER + '/watering.csv'
-EXPERIMENT_FILENAME = DATA_FOLDER + '/experiment.txt'
+PUMP_DATA_FILENAME = DATA_FOLDER + '/pump-data.txt'
 
 MOTOR_SPEED = 70
 
@@ -33,26 +33,30 @@ WATER_PER_1_REVOLUTION = 0.85
 class Plant:
     def __init__ (self, csv_row):
         self.id = csv_row ['id']
-        self.weight = csv_row ['weight']
+        self.weight = float (csv_row ['weight'])
         self.description = csv_row ['description']
 
 
 def main ():
+    time.sleep (10)
     play_sound ('welcome-message.riff')
     cfg = read_config ()
-    download_experiment (cfg ['token'])
+    download_pump_data_file (cfg ['token'])
+    download_plant_data_file (cfg ['token'])
     upload_watering (cfg ['token'])
+    dict_plants = read_plant_data_file ()
     barcode = detect_barcode_scanner ()
     pump = detect_pump ()
     try:
         scale = detect_scale ()
-        download_plant_data_file (cfg ['token'])
-        dict_plants = read_plant_data_file ()
         while True:
             plant_id = get_plant_code_reading (barcode)
             if report_plant_code (plant_id, dict_plants):
                 plant_weight = get_scale_reading (scale)
                 water_plant (plant_id, plant_weight, dict_plants [plant_id].weight, pump)
+    except BaseException as ex:
+        write_to_log ('erro [{}]'.format (ex))
+        raise ex
     finally:
         pump.halt ()
         pump.cancel ()
@@ -68,19 +72,19 @@ def read_config ():
     return result
 
 
-def download_experiment (token):
+def download_pump_data_file (token):
     global MOTOR_SPEED
     global WATER_PER_1_REVOLUTION
     try:
         dbx = dropbox.Dropbox (token)
         write_to_log ('connected to dropbox account')
-        dbx.files_download_to_file (EXPERIMENT_FILENAME, '/experiment.txt')
-        write_to_log ('downloaded experiment file')
-        with open (EXPERIMENT_FILENAME, 'r') as fd:
+        dbx.files_download_to_file (PUMP_DATA_FILENAME, '/pump-data.txt')
+        write_to_log ('downloaded pump data file')
+        with open (PUMP_DATA_FILENAME, 'r') as fd:
             exp = yaml.safe_load (fd)
         if exp ['motor_speed'] != MOTOR_SPEED or\
                 exp ['water_per_1_revolution'] != WATER_PER_1_REVOLUTION:
-            write_to_log ('new experiment parameters ')
+            write_to_log ('new pump data parameters ')
             MOTOR_SPEED = exp ['motor_speed']
             WATER_PER_1_REVOLUTION = exp = exp ['water_per_1_revolution']
             synthesise_text ('Set the water pump parameters. The motor speed is {}. The water weight per one revolution is {} grams'.format (
@@ -89,7 +93,8 @@ def download_experiment (token):
             ))
         result = True
     except BaseException as ex:
-        write_to_log ('an error occur while downloading experiment file {}'.format (ex))
+        write_to_log ('an error occur while downloading pump data file {}'.format (ex))
+        play_sound ('no-download-pump-data.riff')
         result = False
     return result
 
@@ -153,7 +158,7 @@ def download_plant_data_file (token):
     try:
         dbx = dropbox.Dropbox (token)
         write_to_log ('connected to dropbox account')
-        dbx.files_download_to_file (PLANT_DATA_FILENAME, '/plant-data.csv')
+        dbx.files_download_to_file (PLANT_DATA_FILENAME, '/experiment-data.csv')
         write_to_log ('downloaded plant data file')
         play_sound ('download-plant-data.riff')
         result = True
@@ -167,16 +172,40 @@ def read_plant_data_file ():
     """
     Read the plant data file and return a dictionary with id's associated with plant data.
     """
-    with open (PLANT_DATA_FILENAME, 'r') as fd:
-        reader = csv.DictReader (
-            fd,
-            quoting=csv.QUOTE_NONNUMERIC,
-            delimiter=',',
-        )
-        result = {
-            row ['id']: Plant (row)
-            for row in reader
-        }
+    try:
+        with open (PLANT_DATA_FILENAME, 'r') as fd:
+            reader = csv.DictReader (
+                fd,
+                quoting=csv.QUOTE_NONNUMERIC,
+                delimiter=',',
+            )
+            result = {
+                row ['id']: Plant (row)
+                for row in reader
+            }
+    except BaseException:
+        try:
+            with open (PLANT_DATA_FILENAME, 'r') as fd:
+                reader = csv.DictReader (
+                    fd,
+                    quoting=csv.QUOTE_NONNUMERIC,
+                    delimiter=';',
+                )
+                result = {
+                    row ['id']: Plant (row)
+                    for row in reader
+                }
+        except BaseException:
+            with open (PLANT_DATA_FILENAME, 'r') as fd:
+                reader = csv.DictReader (
+                    fd,
+                    delimiter=';',
+                )
+                result = {
+                    row ['id']: Plant (row)
+                    for row in reader
+                }
+    print (result)
     return result
 
 

@@ -27,6 +27,7 @@ def main ():
     create_sound_file ('Welcome to the plant weight water control system.', 'welcome-message.riff')
     create_sound_file ('Uploaded file with plant weight and watering.', 'upload-watering.riff')
     create_sound_file ('Attention! Could not upload file with plant weight and watering.', 'no-uploading-watering.riff')
+    create_sound_file ('Attention! Could not download pump data file.', 'no-download-pump-data.riff')
     create_sound_file ('Downloaded file with plant data', 'download-plant-data.riff')
     create_sound_file ('Connect barcode scanner.', 'connect-barcode-scanner.riff')
     create_sound_file ('Connect water pump.', 'connect-water-pump.riff')
