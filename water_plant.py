@@ -51,7 +51,9 @@ def main ():
         scale = detect_scale ()
         while True:
             plant_id = get_plant_code_reading (barcode)
-            if report_plant_code (plant_id, dict_plants):
+            if plant_id == 9999999999:
+                reset_watering_file ()
+            elif report_plant_code (plant_id, dict_plants):
                 plant_weight = get_scale_reading (scale)
                 water_plant (plant_id, plant_weight, dict_plants [plant_id].weight, pump)
     except BaseException as ex:
@@ -86,7 +88,7 @@ def download_pump_data_file (token):
                 exp ['water_per_1_revolution'] != WATER_PER_1_REVOLUTION:
             write_to_log ('new pump data parameters ')
             MOTOR_SPEED = exp ['motor_speed']
-            WATER_PER_1_REVOLUTION = exp = exp ['water_per_1_revolution']
+            WATER_PER_1_REVOLUTION = exp ['water_per_1_revolution']
             synthesise_text ('Set the water pump parameters. The motor speed is {}. The water weight per one revolution is {} grams'.format (
                 MOTOR_SPEED,
                 WATER_PER_1_REVOLUTION
@@ -274,6 +276,14 @@ def get_plant_code_reading (barcode_scanner_device):
     result = ss
     write_to_log ('read plant code {}'.format (result))
     return result
+
+
+def reset_watering_file ():
+    play_sound ('reset-watering.riff')
+    with open (water_plant.WATERING_FILENAME, 'wt') as fd:
+        fd.write (
+            '"timestamp",\"plant id","plant current weight","plant desired weight","watered","motor speed",'
+            '"revolutions","water per 1 revolution"\n')
 
 
 def report_plant_code (code, plants):

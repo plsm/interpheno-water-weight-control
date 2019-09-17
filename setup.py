@@ -36,6 +36,7 @@ def main ():
     create_sound_file ('Connect plant scale.', 'connect-plant-scale.riff')
     create_sound_file ('Waiting for plant barcode...', 'waiting-barcode.riff')
     create_sound_file ('Waiting for plant weight...', 'waiting-weight.riff')
+    create_sound_file ('Reseting watering file.', 'reset-watering.riff')
     try:
         dbx = dropbox.Dropbox (args.token)
         dbx.files_download_to_file (water_plant.EXPERIMENT_DATA_FILENAME, '/experiment-data.csv')
