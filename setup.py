@@ -44,7 +44,7 @@ def main ():
     except BaseException as ex:
         print (ex)
     if os.path.exists (water_plant.WATERING_FILENAME):
-        answer = raw_input ('Overwrite file {} (y/n)? '.format (water_plant.WATERING_FILENAME))
+        answer = input ('Overwrite file {} (y/n)? '.format (water_plant.WATERING_FILENAME))
         ok = answer == 'y' or answer == 'yes'
     else:
         ok = True
