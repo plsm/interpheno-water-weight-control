@@ -42,8 +42,10 @@ class Plant:
 def main ():
     time.sleep (10)
     play_sound ('welcome-message.riff')
+    write_to_log ('Welcome to plant water system')
     cfg = read_config ()
     download_pump_data_file (cfg ['token'])
+    setup_pump ()
     download_experiment_data_file (cfg ['token'])
     upload_watering (cfg ['token'])
     dict_plants = read_experiment_data_file ()
@@ -60,6 +62,7 @@ def main ():
                 go = False
             elif report_plant_code (plant_id, dict_plants):
                 plant_weight = get_scale_reading (scale)
+                time.sleep (5) # wait at least 5 seconds to give time to put plant in pump
                 water_plant (plant_id, plant_weight, dict_plants [plant_id].weight, pump)
     except BaseException as ex:
         write_to_log ('erro [{}]'.format (ex))
@@ -67,7 +70,10 @@ def main ():
     finally:
         pump.halt ()
         pump.cancel ()
-    subprocess ("sudo shutdown -h now", shell=True)
+    write_to_log ('Synchronising file to disk...')
+    subprocess.call ("sync", shell=True)
+    write_to_log ('Shuting down...')
+    subprocess.call ("sudo shutdown -h now", shell=True)
 
 
 def read_config ():
@@ -81,14 +87,23 @@ def read_config ():
 
 
 def download_pump_data_file (token):
-    global MOTOR_SPEED
-    global WATER_PER_1_REVOLUTION
-    global MAX_INVALID_WEIGHT
     try:
         dbx = dropbox.Dropbox (token)
         write_to_log ('connected to dropbox account')
         dbx.files_download_to_file (PUMP_DATA_FILENAME, '/pump-data.txt')
         write_to_log ('downloaded pump data file')
+        result = True
+    except BaseException as ex:
+        write_to_log ('an error occur while downloading pump data file {}'.format (ex))
+        play_sound ('no-download-pump-data.riff')
+        result = False
+    return result
+
+
+def setup_pump ():
+        global MOTOR_SPEED
+        global WATER_PER_1_REVOLUTION
+        global MAX_INVALID_WEIGHT
         with open (PUMP_DATA_FILENAME, 'r') as fd:
             exp = yaml.safe_load (fd)
         if exp ['motor_speed'] != MOTOR_SPEED or\
@@ -105,12 +120,6 @@ def download_pump_data_file (token):
             synthesise_text ('The maximum invalid weight is {}.'.format (
                 MAX_INVALID_WEIGHT
                 ))
-        result = True
-    except BaseException as ex:
-        write_to_log ('an error occur while downloading pump data file {}'.format (ex))
-        play_sound ('no-download-pump-data.riff')
-        result = False
-    return result
 
 
 def detect_barcode_scanner ():
@@ -335,7 +344,7 @@ def get_scale_reading (scale):
         reading = scale.readline ()
         if len (reading) == 0:
             play_sound ('waiting-weight.riff')
-            time.sleep (10)
+            time.sleep (5)
         else:
             ko = False
     write_to_log ('scale returned the reading [{}]'.format (reading))
